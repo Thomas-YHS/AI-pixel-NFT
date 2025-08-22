@@ -12,7 +12,7 @@ import "forge-std/console.sol";
  * It also allows the owner to withdraw the Ether in the contract
  * @author BuidlGuidl
  */
-contract YourContract {
+contract YourContract { 
     // State Variables
     address public immutable owner;
     string public greeting = "Building Unstoppable Apps!!!";
