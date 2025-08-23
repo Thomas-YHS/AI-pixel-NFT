@@ -2952,6 +2952,7 @@ __metadata:
     next: ~15.2.3
     next-nprogress-bar: ~2.3.13
     next-themes: ~0.3.0
+    pinata: ^2.5.0
     postcss: ~8.4.45
     prettier: ~3.5.3
     qrcode.react: ~4.0.1
@@ -11280,6 +11281,21 @@ __metadata:
   version: 5.0.0
   resolution: "pify@npm:5.0.0"
   checksum: 443e3e198ad6bfa8c0c533764cf75c9d5bc976387a163792fb553ffe6ce923887cf14eebf5aea9b7caa8eab930da8c33612990ae85bd8c2bc18bedb9eae94ecb
+  languageName: node
+  linkType: hard
+
+"pinata@npm:^2.5.0":
+  version: 2.5.0
+  resolution: "pinata@npm:2.5.0"
+  peerDependencies:
+    react: ">=16.8.0"
+    react-dom: ">=16.8.0"
+  peerDependenciesMeta:
+    react:
+      optional: true
+    react-dom:
+      optional: true
+  checksum: 92a91a010bbedbc118b1b82b5918987a9ca0d69cd8ba4a6970da341199749a5ca9ceff0c24ed3c2502fdaf4a735b469616711b39210698253ea108aefe3e7c9c
   languageName: node
   linkType: hard
 

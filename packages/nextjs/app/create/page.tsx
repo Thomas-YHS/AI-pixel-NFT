@@ -6,9 +6,12 @@ import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MetaHeader } from "~~/components/MetaHeader";
 import { Address } from "~~/components/scaffold-eth";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
-import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
-import { createWeatherNFTMetadata, uploadCompleteNFT } from "~~/lib/ipfs";
+import {
+  useDeployedContractInfo,
+  useScaffoldWatchContractEvent,
+  useScaffoldWriteContract,
+} from "~~/hooks/scaffold-eth";
+import { createWeatherNFTMetadata, uploadCompleteNFTToPinata } from "~~/lib/pinata";
 import { type WeatherData, generateWeatherPrompt, getWeatherByCity, getWeatherByGeolocation } from "~~/lib/weather";
 
 const Create: NextPage = () => {
@@ -23,7 +26,7 @@ const Create: NextPage = () => {
   const [tokenId, setTokenId] = useState<number | null>(null);
   const [isUsingLocation, setIsUsingLocation] = useState(false);
   const [ipfsData, setIpfsData] = useState<{ imageUrl: string; metadataUrl: string } | null>(null);
-
+  // console.log(weatherNFTContract, "weatherNFTContract");
   const handleGenerate = async () => {
     if (!connectedAddress) {
       alert("请先连接钱包");
@@ -52,16 +55,18 @@ const Create: NextPage = () => {
       // Step 2: 生成图像
       setStep("generating");
 
+      let imageUrl = "";
       try {
         // 使用AI生成图像
         const prompt = generateWeatherPrompt(realWeatherData);
-        const generatedImageUrl = await generateImageViaApi(prompt);
-        setGeneratedImage(generatedImageUrl);
+        imageUrl = await generateImageViaApi(prompt);
+
+        // setGeneratedImage(generatedImageUrl);
       } catch (error) {
         console.warn("AI generation failed, using fallback:", error);
         // 失败时使用fallback SVG
-        const fallbackImage = generatePlaceholderSVG(realWeatherData);
-        setGeneratedImage(fallbackImage);
+        imageUrl = generatePlaceholderSVG(realWeatherData);
+        // setGeneratedImage(fallbackImage);
       }
 
       // Step 3: 上传到IPFS
@@ -73,10 +78,9 @@ const Create: NextPage = () => {
 
         // 生成临时 tokenID（实际应该在铸造后获取）
         const tempTokenId = `${Date.now()}`;
-
-        // 上传图片和metadata到IPFS（包含合约地址和tokenID用于集合管理）
-        const uploadResult = await uploadCompleteNFT(
-          generatedImage || "",
+        // 上传图片和metadata到Pinata IPFS（包含合约地址和tokenID用于集合管理）
+        const uploadResult = await uploadCompleteNFTToPinata(
+          imageUrl || "",
           metadata,
           weatherNFTContract?.address,
           tempTokenId,
@@ -86,11 +90,11 @@ const Create: NextPage = () => {
           metadataUrl: uploadResult.metadataUrl,
         });
 
-        console.log("IPFS Upload successful:", uploadResult);
+        console.log("Pinata Upload successful:", uploadResult);
         console.log("Contract address:", weatherNFTContract?.address);
       } catch (error) {
-        console.warn("IPFS upload failed, continuing with local data:", error);
-        // 即使IPFS上传失败，也继续流程（用于演示）
+        console.warn("Pinata upload failed, continuing with local data:", error);
+        // 即使Pinata上传失败，也继续流程（用于演示）
       }
 
       // Step 4: 铸造NFT
@@ -155,8 +159,17 @@ const Create: NextPage = () => {
     }
   };
 
+  useScaffoldWatchContractEvent({
+    contractName: "WeatherNFT",
+    eventName: "WeatherNFTMinted",
+    chainId: 31337,
+    onLogs: logs => {
+      console.log("logs", logs);
+    },
+  });
+
   const generateImageViaApi = async (prompt: string): Promise<string> => {
-    debugger;
+    // debugger;
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: {
@@ -248,7 +261,7 @@ const Create: NextPage = () => {
       case "generating":
         return "🎨 AI正在生成图片...";
       case "uploading":
-        return "☁️ 上传到IPFS...";
+        return "☁️ 上传到Pinata IPFS...";
       case "minting":
         return "⛏️ 铸造NFT...";
       case "done":

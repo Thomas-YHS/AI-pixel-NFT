@@ -358,7 +358,7 @@ export function ipfsToHttp(ipfsUrl: string, gateway = "https://ipfs.io/ipfs/"): 
 /**
  * 根据天气数据创建NFT metadata
  */
-export function createWeatherNFTMetadata(weatherData: any, description?: string): Omit<NFTMetadata, "image"> {
+export function createWeatherNFTMetadata(weatherData: any, description?: string): NFTMetadata {
   /**
    * 临时使用时间戳作为ID，后续需要修改
    * TODO 需要讨论是否使用其他ID生成方式
@@ -375,7 +375,8 @@ export function createWeatherNFTMetadata(weatherData: any, description?: string)
      * 临时使用域名作为外部URL，后续需要修改
      * TODO 需要讨论是否使用其他URL生成方式
      */
-    external_url: `https://your-domain.com/nft/${tokenId}`,
+    image: `ipfs://${weatherData.imageCid}`,
+    external_url: weatherData.external_url,
     attributes: [
       {
         trait_type: "City",
