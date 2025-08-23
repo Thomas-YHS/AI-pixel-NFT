@@ -6,24 +6,23 @@ import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MetaHeader } from "~~/components/MetaHeader";
 import { Address } from "~~/components/scaffold-eth";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
+import { createWeatherNFTMetadata, uploadCompleteNFT } from "~~/lib/ipfs";
+import { type WeatherData, generateWeatherPrompt, getWeatherByCity, getWeatherByGeolocation } from "~~/lib/weather";
 
 const Create: NextPage = () => {
   const { address: connectedAddress } = useAccount();
-  const [step, setStep] = useState<"idle" | "generating" | "uploading" | "minting" | "done">("idle");
+  const { writeContractAsync: writeWeatherNFTAsync } = useScaffoldWriteContract({ contractName: "WeatherNFT" });
+  // TODO 需要替换弃用的方法
+  const { data: weatherNFTContract } = useDeployedContractInfo("WeatherNFT");
+  const [step, setStep] = useState<"idle" | "fetching" | "generating" | "uploading" | "minting" | "done">("idle");
   const [city, setCity] = useState("");
-  const [weatherData, setWeatherData] = useState<any>(null);
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [tokenId, setTokenId] = useState<number | null>(null);
-
-  const mockWeatherData = {
-    city: city || "北京",
-    date: new Date().toISOString().split("T")[0],
-    weather: "晴天",
-    temperature: 25,
-    timeOfDay: "下午",
-    humidity: 65,
-    windSpeed: 5,
-  };
+  const [isUsingLocation, setIsUsingLocation] = useState(false);
+  const [ipfsData, setIpfsData] = useState<{ imageUrl: string; metadataUrl: string } | null>(null);
 
   const handleGenerate = async () => {
     if (!connectedAddress) {
@@ -31,38 +30,161 @@ const Create: NextPage = () => {
       return;
     }
 
-    if (!city.trim()) {
-      alert("请输入城市名称");
+    if (!city.trim() && !isUsingLocation) {
+      alert("请输入城市名称或使用定位");
       return;
     }
 
     try {
+      // Step 1: 获取天气数据
+      setStep("fetching");
+      let realWeatherData: WeatherData;
+      debugger;
+      if (isUsingLocation) {
+        realWeatherData = await getWeatherByGeolocation();
+        setCity(realWeatherData.city); // 更新城市名称显示
+      } else {
+        // TODO 这里获取地址逻辑有问题
+        realWeatherData = await getWeatherByCity(city.trim());
+      }
+
+      setWeatherData(realWeatherData);
+
+      // Step 2: 生成图像
       setStep("generating");
-      setWeatherData(mockWeatherData);
 
-      // 模拟生成过程延迟
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      try {
+        // 使用AI生成图像
+        const prompt = generateWeatherPrompt(realWeatherData);
+        const generatedImageUrl = await generateImageViaApi(prompt);
+        setGeneratedImage(generatedImageUrl);
+      } catch (error) {
+        console.warn("AI generation failed, using fallback:", error);
+        // 失败时使用fallback SVG
+        const fallbackImage = generatePlaceholderSVG(realWeatherData);
+        setGeneratedImage(fallbackImage);
+      }
 
-      // 使用占位图
-      const placeholderImage = generatePlaceholderSVG(mockWeatherData);
-      setGeneratedImage(placeholderImage);
-
+      // Step 3: 上传到IPFS
       setStep("uploading");
-      // 模拟上传过程
-      await new Promise(resolve => setTimeout(resolve, 1500));
 
+      try {
+        // 创建NFT metadata
+        const metadata = createWeatherNFTMetadata(realWeatherData);
+
+        // 生成临时 tokenID（实际应该在铸造后获取）
+        const tempTokenId = `${Date.now()}`;
+
+        // 上传图片和metadata到IPFS（包含合约地址和tokenID用于集合管理）
+        const uploadResult = await uploadCompleteNFT(
+          generatedImage || "",
+          metadata,
+          weatherNFTContract?.address,
+          tempTokenId,
+        );
+        setIpfsData({
+          imageUrl: uploadResult.imageUrl,
+          metadataUrl: uploadResult.metadataUrl,
+        });
+
+        console.log("IPFS Upload successful:", uploadResult);
+        console.log("Contract address:", weatherNFTContract?.address);
+      } catch (error) {
+        console.warn("IPFS upload failed, continuing with local data:", error);
+        // 即使IPFS上传失败，也继续流程（用于演示）
+      }
+
+      // Step 4: 铸造NFT
       setStep("minting");
-      // 模拟铸造过程
-      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 模拟返回的tokenId
-      setTokenId(Math.floor(Math.random() * 1000) + 1);
-      setStep("done");
+      try {
+        // 使用真实的合约交互
+        const metadataUri =
+          ipfsData?.metadataUrl ||
+          (() => {
+            const metadata = createWeatherNFTMetadata(realWeatherData);
+            const jsonString = JSON.stringify(metadata, null, 2);
+            return `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
+          })();
+
+        const mintTx = await writeWeatherNFTAsync({
+          functionName: "mintWithURI",
+          args: [
+            connectedAddress,
+            realWeatherData.city,
+            realWeatherData.date,
+            realWeatherData.weather,
+            BigInt(realWeatherData.temperature),
+            realWeatherData.timeOfDay,
+            metadataUri,
+          ],
+        });
+
+        console.log("NFT Minted successfully! Transaction:", mintTx);
+
+        // TODO 从交易日志中提取tokenId（简化处理）
+        setTokenId(Date.now()); // TODO 临时使用时间戳，实际应该从事件日志中获取
+        setStep("done");
+      } catch (error) {
+        console.error("Minting failed:", error);
+        setStep("idle");
+        const errorMessage = error instanceof Error ? error.message : "铸造失败，请重试";
+        alert(`铸造失败: ${errorMessage}`);
+      }
     } catch (error) {
       console.error("Error:", error);
       setStep("idle");
-      alert("生成失败，请重试");
+      const errorMessage = error instanceof Error ? error.message : "生成失败，请重试";
+      alert(errorMessage);
     }
+  };
+
+  const handleUseLocation = async () => {
+    setIsUsingLocation(true);
+    setCity("正在定位...");
+
+    try {
+      const locationWeather = await getWeatherByGeolocation();
+      setCity(locationWeather.city);
+      setWeatherData(locationWeather);
+    } catch (error) {
+      console.error("定位失败:", error);
+      setCity("");
+      setIsUsingLocation(false);
+      const errorMessage = error instanceof Error ? error.message : "定位失败";
+      alert(errorMessage);
+    }
+  };
+
+  const generateImageViaApi = async (prompt: string): Promise<string> => {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      // TODO 需要修改width和height
+      body: JSON.stringify({
+        prompt,
+        width: 512,
+        height: 768,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Image generation failed: ${response.status}`);
+    }
+
+    // 如果返回的是SVG，直接返回
+    const contentType = response.headers.get("content-type");
+    if (contentType?.includes("image/svg+xml")) {
+      const svgText = await response.text();
+      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+    }
+
+    // 如果返回的是图片，转换为data URL
+    const imageBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(imageBuffer).toString("base64");
+    return `data:image/png;base64,${base64}`;
   };
 
   const generatePlaceholderSVG = (data: any) => {
@@ -106,7 +228,8 @@ const Create: NextPage = () => {
       </svg>
     `;
 
-    return `data:image/svg+xml;base64,${btoa(svg)}`;
+    // 使用 encodeURIComponent 而不是 btoa 来处理中文字符
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   };
 
   const resetFlow = () => {
@@ -114,10 +237,14 @@ const Create: NextPage = () => {
     setWeatherData(null);
     setGeneratedImage(null);
     setTokenId(null);
+    setIsUsingLocation(false);
+    setIpfsData(null);
   };
 
   const getStepText = () => {
     switch (step) {
+      case "fetching":
+        return "🌍 获取天气数据...";
       case "generating":
         return "🎨 AI正在生成图片...";
       case "uploading":
@@ -156,26 +283,41 @@ const Create: NextPage = () => {
                 <label className="label">
                   <span className="label-text">城市名称</span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="例如：北京、上海、深圳..."
-                  className="input input-bordered w-full"
-                  value={city}
-                  onChange={e => setCity(e.target.value)}
-                  disabled={step !== "idle"}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="例如：北京、上海、深圳..."
+                    className="input input-bordered flex-1"
+                    value={city}
+                    onChange={e => setCity(e.target.value)}
+                    disabled={step !== "idle"}
+                  />
+                  <button
+                    className="btn btn-outline"
+                    onClick={handleUseLocation}
+                    disabled={step !== "idle"}
+                    title="使用当前位置"
+                  >
+                    📍
+                  </button>
+                </div>
               </div>
 
               {weatherData && (
                 <div className="bg-base-200 p-4 rounded-lg mb-4">
-                  <h3 className="font-bold mb-2">📊 天气信息</h3>
+                  <h3 className="font-bold mb-2">📊 实时天气信息</h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>🏙️ 城市: {weatherData.city}</div>
+                    <div>🌍 国家: {weatherData.country}</div>
                     <div>📅 日期: {weatherData.date}</div>
                     <div>🌤️ 天气: {weatherData.weather}</div>
                     <div>🌡️ 温度: {weatherData.temperature}°C</div>
                     <div>⏰ 时段: {weatherData.timeOfDay}</div>
                     <div>💧 湿度: {weatherData.humidity}%</div>
+                    <div>💨 风速: {weatherData.windSpeed} km/h</div>
+                  </div>
+                  <div className="mt-2 text-xs text-base-content/60">
+                    📍 {weatherData.latitude.toFixed(4)}, {weatherData.longitude.toFixed(4)}
                   </div>
                 </div>
               )}
@@ -197,7 +339,17 @@ const Create: NextPage = () => {
                     <progress
                       className="progress progress-primary w-full"
                       max="100"
-                      value={step === "generating" ? 33 : step === "uploading" ? 66 : step === "minting" ? 90 : 100}
+                      value={
+                        step === "fetching"
+                          ? 20
+                          : step === "generating"
+                            ? 40
+                            : step === "uploading"
+                              ? 70
+                              : step === "minting"
+                                ? 90
+                                : 100
+                      }
                     ></progress>
                   </div>
                 )}

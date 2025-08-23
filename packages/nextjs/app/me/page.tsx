@@ -55,7 +55,8 @@ function generateMockImage(city: string, weather: string, temp: number) {
     </svg>
   `;
 
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  // 使用 encodeURIComponent 而不是 btoa 来处理中文字符
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
 // 模拟NFT数据
