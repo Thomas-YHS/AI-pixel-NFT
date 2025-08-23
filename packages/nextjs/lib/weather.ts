@@ -300,5 +300,5 @@ export function generateWeatherPrompt(weather: WeatherData): string {
   const timeEn = timeOfDayMap[weather.timeOfDay as keyof typeof timeOfDayMap] || "day";
   const weatherEn = weatherMap[weather.weather] || weather.weather;
 
-  return `A beautiful artistic poster of ${weather.city}, ${timeEn} time, ${weatherEn} weather, ${weather.temperature}°C, minimalist design, modern typography, vibrant colors, travel poster style, high quality, 4k`;
+  return `A beautiful artistic poster of city ${weather.city}, ${timeEn} time, ${weatherEn} weather, ${weather.temperature}°C, minimalist design, modern typography, vibrant colors, travel poster style --ar 96:96 --style rd_fast__retro`;
 }

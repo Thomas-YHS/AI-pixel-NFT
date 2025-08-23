@@ -148,7 +148,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 1,
+      deployedOnBlock: 2,
     },
     WeatherNFT: {
       address: "0xa15bb66138824a1c7167f5e85b957d04dd34e468",
@@ -991,7 +991,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 1,
+      deployedOnBlock: 3,
     },
   },
 } as const;

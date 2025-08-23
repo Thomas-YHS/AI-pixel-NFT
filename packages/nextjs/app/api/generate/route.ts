@@ -1,105 +1,138 @@
 import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
+import sharp from "sharp";
+import { generateFrameSVG } from "~~/lib/frame";
+import { analyzeWallet } from "~~/lib/wallet";
+
+// 定义最终图片的尺寸
+const IMAGE_WIDTH = 384;
+const IMAGE_HEIGHT = 384;
+const BORDER_SIZE = 50;
+const FINAL_WIDTH = IMAGE_WIDTH + BORDER_SIZE * 2;
+const FINAL_HEIGHT = IMAGE_HEIGHT + BORDER_SIZE * 2;
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, width = 512, height = 768 } = await request.json();
+    const { prompt, address } = await request.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
-    // 检查是否有Replicate API密钥
-    const replicateToken = process.env.REPLICATE_API_TOKEN;
-    console.log("replicateToken", replicateToken);
-    if (!replicateToken) {
-      console.warn("REPLICATE_API_TOKEN not found, using fallback generation");
-      return generateFallbackImage(prompt, width, height);
+    if (!address) {
+      return NextResponse.json({ error: "Address is required" }, { status: 400 });
     }
 
-    // 使用Replicate API生成图像
-    const response = await fetch("https://api.replicate.com/v1/predictions", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${replicateToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        version: "39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b", // SDXL
-        input: {
-          prompt: prompt,
-          width: width,
-          height: height,
-          num_outputs: 1,
-          num_inference_steps: 20,
-          guidance_scale: 7.5,
-          scheduler: "K_EULER",
-        },
-      }),
+    // --- 核心逻辑 ---
+    // 1. 分析钱包
+    const walletTraits = await analyzeWallet(address);
+
+    // 2. 生成相框 SVG
+    const frameSvg = generateFrameSVG(walletTraits);
+    const frameBuffer = Buffer.from(frameSvg);
+
+    // 3. 调用 Poe API 获取 AI 生成的主图像
+    // 检查是否有Poe API密钥
+    const poeApiKey = process.env.POE_API_KEY;
+    console.log("poeApiKey found:", !!poeApiKey);
+    if (!poeApiKey) {
+      console.warn("POE_API_KEY not found, using fallback generation");
+      // 如果没有API key，直接使用后备图像+相框
+      const fallbackBuffer = await generateFallbackImage(prompt, IMAGE_WIDTH, IMAGE_HEIGHT);
+      return combineImages(fallbackBuffer, frameBuffer);
+    }
+
+    // 使用Poe API生成图像
+    // 像素风格使用 Retro-Diffusion-Core 模型，生成的图像尺寸为：384*384
+    const client = new OpenAI({
+      apiKey: poeApiKey,
+      baseURL: "https://api.poe.com/v1",
     });
 
-    if (!response.ok) {
-      throw new Error(`Replicate API error: ${response.status}`);
-    }
-
-    const prediction = await response.json();
-
-    // 轮询结果
-    let result = prediction;
-    let attempts = 0;
-    const maxAttempts = 60; // 最多等待60秒
-
-    while (result.status !== "succeeded" && result.status !== "failed" && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${result.id}`, {
-        headers: {
-          Authorization: `Token ${replicateToken}`,
-          "Content-Type": "application/json",
+    const response = await client.chat.completions.create({
+      model: "Retro-Diffusion-Core",
+      messages: [
+        {
+          role: "user",
+          content: `${prompt}`,
         },
-      });
+      ],
+      stream: false, // Image bots should be called with stream=False
+    });
 
-      if (!pollResponse.ok) {
-        throw new Error(`Polling error: ${pollResponse.status}`);
-      }
-
-      result = await pollResponse.json();
-      attempts++;
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new Error("Poe API did not return content");
     }
 
-    if (result.status === "failed") {
-      throw new Error(result.error || "Image generation failed");
-    }
+    // Poe for images returns a markdown reference-style link:
+    // [some_ref]: url
+    // ![...][some_ref]
+    const urlMatch = content.match(/!\[.*?\]\((https?:\/\/\S+)\)/);
+    const imageUrl = urlMatch?.[1];
 
-    if (result.status !== "succeeded") {
-      throw new Error("Image generation timed out");
-    }
-
-    // 获取生成的图像URL
-    const imageUrl = result.output?.[0];
     if (!imageUrl) {
-      throw new Error("No image URL in response");
+      console.error("Could not extract image URL from Poe response. Response content omitted for security.");
+      throw new Error("No image URL in response from Poe");
     }
 
     // 下载图像并转换为Buffer
     const imageResponse = await fetch(imageUrl);
     if (!imageResponse.ok) {
-      throw new Error("Failed to download generated image");
+      throw new Error(`Failed to download generated image from ${imageUrl}`);
     }
 
-    const imageBuffer = await imageResponse.arrayBuffer();
+    const aiImageBuffer = await imageResponse.arrayBuffer();
 
-    return new NextResponse(Buffer.from(imageBuffer), {
-      headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=31536000",
-      },
-    });
+    // 4. 将 AI 图像和相框合并
+    return combineImages(Buffer.from(aiImageBuffer), frameBuffer);
   } catch (error) {
-    console.error("Image generation error:", error);
-
-    // 发生错误时返回fallback图像
+    console.error("Image generation/framing error:", error instanceof Error ? error.message : String(error));
     const { prompt } = await request.json().catch(() => ({ prompt: "Weather poster" }));
-    return generateFallbackImage(prompt, 512, 768);
+    const fallbackBuffer = await generateFallbackImage(prompt, IMAGE_WIDTH, IMAGE_HEIGHT);
+    const defaultWalletTraits = {
+      tags: ["链上新手小白"],
+      transactionCount: 0,
+      walletAgeInDays: 0,
+      nftCount: 0,
+      uniqueContractsInteracted: 0,
+    }; // Adjust structure to match WalletTraits type
+    const frameBuffer = Buffer.from(generateFrameSVG(defaultWalletTraits)); // 失败时用默认相框
+    return combineImages(fallbackBuffer, frameBuffer);
   }
+}
+
+/**
+ * 合并主图像和相框
+ */
+async function combineImages(mainImage: Buffer, frame: Buffer): Promise<NextResponse> {
+  const finalImageBuffer = await sharp({
+    create: {
+      width: FINAL_WIDTH,
+      height: FINAL_HEIGHT,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: frame,
+        top: 0,
+        left: 0,
+      },
+      {
+        input: mainImage,
+        top: BORDER_SIZE,
+        left: BORDER_SIZE,
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  return new NextResponse(new Uint8Array(finalImageBuffer), {
+    headers: {
+      "Content-Type": "image/png",
+    },
+  });
 }
 
 /**
@@ -181,10 +214,7 @@ async function generateFallbackImage(prompt: string, width: number, height: numb
 
   const svgBuffer = Buffer.from(svg, "utf-8");
 
-  return new NextResponse(svgBuffer, {
-    headers: {
-      "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=31536000",
-    },
-  });
+  // Convert SVG buffer to PNG buffer using sharp
+  const pngBuffer = await sharp(svgBuffer).png().toBuffer();
+  return pngBuffer;
 }

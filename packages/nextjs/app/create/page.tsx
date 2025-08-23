@@ -63,7 +63,7 @@ const Create: NextPage = () => {
       try {
         // 使用AI生成图像
         const prompt = generateWeatherPrompt(realWeatherData);
-        imageUrl = await generateImageViaApi(prompt);
+        imageUrl = await generateImageViaApi(prompt, connectedAddress);
 
         // setGeneratedImage(generatedImageUrl);
       } catch (error) {
@@ -174,7 +174,7 @@ const Create: NextPage = () => {
     },
   });
 
-  const generateImageViaApi = async (prompt: string): Promise<string> => {
+  const generateImageViaApi = async (prompt: string, address: string): Promise<string> => {
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: {
@@ -183,8 +183,7 @@ const Create: NextPage = () => {
       // TODO 需要修改width和height
       body: JSON.stringify({
         prompt,
-        width: 512,
-        height: 768,
+        address, // <--- 新增 address
       }),
     });
 
@@ -404,8 +403,8 @@ const Create: NextPage = () => {
                     <Image
                       src={generatedImage}
                       alt="Generated Weather NFT"
-                      width={400}
-                      height={600}
+                      width={484}
+                      height={484}
                       className="w-full rounded-lg shadow-lg"
                     />
                     <div className="mt-4 text-center">
@@ -413,7 +412,7 @@ const Create: NextPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full max-w-sm h-96 bg-base-200 rounded-lg flex items-center justify-center">
+                  <div className="w-full max-w-sm h-[56rem] bg-base-200 rounded-lg flex items-center justify-center">
                     <div className="text-center text-base-content/50">
                       <div className="text-6xl mb-4">🌤️</div>
                       <div>点击生成按钮</div>
