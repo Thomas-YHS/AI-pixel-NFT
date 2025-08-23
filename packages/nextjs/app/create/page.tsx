@@ -11,13 +11,12 @@ import {
   useScaffoldWatchContractEvent,
   useScaffoldWriteContract,
 } from "~~/hooks/scaffold-eth";
-import { createWeatherNFTMetadata, uploadCompleteNFTToPinata } from "~~/lib/pinata";
+import { PinataUploadResult, createWeatherNFTMetadata, uploadCompleteNFTToPinata } from "~~/lib/pinata";
 import { type WeatherData, generateWeatherPrompt, getWeatherByCity, getWeatherByGeolocation } from "~~/lib/weather";
 
 const Create: NextPage = () => {
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync: writeWeatherNFTAsync } = useScaffoldWriteContract({ contractName: "WeatherNFT" });
-  // TODO 需要替换弃用的方法
   const { data: weatherNFTContract } = useDeployedContractInfo("WeatherNFT");
   const [step, setStep] = useState<"idle" | "fetching" | "generating" | "uploading" | "minting" | "done">("idle");
   const [city, setCity] = useState("");
@@ -25,7 +24,12 @@ const Create: NextPage = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [tokenId, setTokenId] = useState<number | null>(null);
   const [isUsingLocation, setIsUsingLocation] = useState(false);
-  const [ipfsData, setIpfsData] = useState<{ imageUrl: string; metadataUrl: string } | null>(null);
+  // const [ipfsData, setIpfsData] = useState<{
+  //   imageUrl: string;
+  //   metadataUrl: string;
+  //   imageCid: string;
+  //   metadataCid: string;
+  // } | null>(null);
   // console.log(weatherNFTContract, "weatherNFTContract");
   const handleGenerate = async () => {
     if (!connectedAddress) {
@@ -71,7 +75,7 @@ const Create: NextPage = () => {
 
       // Step 3: 上传到IPFS
       setStep("uploading");
-
+      let uploadResult: PinataUploadResult | null = null;
       try {
         // 创建NFT metadata
         const metadata = createWeatherNFTMetadata(realWeatherData);
@@ -79,16 +83,12 @@ const Create: NextPage = () => {
         // 生成临时 tokenID（实际应该在铸造后获取）
         const tempTokenId = `${Date.now()}`;
         // 上传图片和metadata到Pinata IPFS（包含合约地址和tokenID用于集合管理）
-        const uploadResult = await uploadCompleteNFTToPinata(
+        uploadResult = await uploadCompleteNFTToPinata(
           imageUrl || "",
           metadata,
           weatherNFTContract?.address,
           tempTokenId,
         );
-        setIpfsData({
-          imageUrl: uploadResult.imageUrl,
-          metadataUrl: uploadResult.metadataUrl,
-        });
 
         console.log("Pinata Upload successful:", uploadResult);
         console.log("Contract address:", weatherNFTContract?.address);
@@ -97,19 +97,21 @@ const Create: NextPage = () => {
         // 即使Pinata上传失败，也继续流程（用于演示）
       }
 
+      // await new Promise(resolve => setTimeout(resolve, 800));
+
       // Step 4: 铸造NFT
       setStep("minting");
 
       try {
         // 使用真实的合约交互
         const metadataUri =
-          ipfsData?.metadataUrl ||
+          uploadResult?.metadataCid ||
           (() => {
             const metadata = createWeatherNFTMetadata(realWeatherData);
             const jsonString = JSON.stringify(metadata, null, 2);
             return `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
           })();
-
+        // debugger;
         const mintTx = await writeWeatherNFTAsync({
           functionName: "mintWithURI",
           args: [
@@ -126,7 +128,7 @@ const Create: NextPage = () => {
         console.log("NFT Minted successfully! Transaction:", mintTx);
 
         // TODO 从交易日志中提取tokenId（简化处理）
-        setTokenId(Date.now()); // TODO 临时使用时间戳，实际应该从事件日志中获取
+        // setTokenId(Date.now()); // TODO 临时使用时间戳，实际应该从事件日志中获取
         setStep("done");
       } catch (error) {
         console.error("Minting failed:", error);
@@ -164,12 +166,15 @@ const Create: NextPage = () => {
     eventName: "WeatherNFTMinted",
     chainId: 31337,
     onLogs: logs => {
-      console.log("logs", logs);
+      if (logs.length > 0) {
+        const event = logs[0];
+        const tokenId = event.args?.tokenId;
+        setTokenId(Number(tokenId));
+      }
     },
   });
 
   const generateImageViaApi = async (prompt: string): Promise<string> => {
-    // debugger;
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: {
@@ -251,7 +256,7 @@ const Create: NextPage = () => {
     setGeneratedImage(null);
     setTokenId(null);
     setIsUsingLocation(false);
-    setIpfsData(null);
+    // setIpfsData(null);
   };
 
   const getStepText = () => {
