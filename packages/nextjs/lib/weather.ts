@@ -31,8 +31,14 @@ export interface GeoLocation {
  */
 export async function getCityLocation(cityName: string): Promise<GeoLocation> {
   try {
+    // 使用 Nominatim API 进行地理编码
     const response = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=zh`,
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityName)}&format=json&limit=1&accept-language=zh-CN,zh`,
+      {
+        headers: {
+          "User-Agent": "WeatherNFT-App/1.0",
+        },
+      },
     );
 
     if (!response.ok) {
@@ -41,22 +47,51 @@ export async function getCityLocation(cityName: string): Promise<GeoLocation> {
 
     const data = await response.json();
 
-    if (!data.results || data.results.length === 0) {
+    if (!data || data.length === 0) {
       throw new Error(`未找到城市: ${cityName}`);
     }
 
-    const location = data.results[0];
+    const location = data[0];
+
+    // 从 display_name 中提取城市和国家信息
+    const displayParts = location.display_name.split(", ");
+    const cityDisplayName = displayParts[0] || cityName;
+    const country = displayParts[displayParts.length - 1] || "未知国家";
+
+    // 根据经纬度估算时区（简化处理）
+    const longitude = parseFloat(location.lon);
+    const estimatedTimezone = getTimezoneFromLongitude(longitude);
+
     return {
-      name: location.name,
-      country: location.country,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      timezone: location.timezone || "UTC",
+      name: cityDisplayName,
+      country: country,
+      latitude: parseFloat(location.lat),
+      longitude: longitude,
+      timezone: estimatedTimezone,
     };
   } catch (error) {
     console.error("获取城市位置失败:", error);
     throw error;
   }
+}
+
+/**
+ * 根据经度估算时区（简化方法）
+ */
+function getTimezoneFromLongitude(longitude: number): string {
+  // 简化的时区计算：每15度约等于1小时
+  const timezoneOffset = Math.round(longitude / 15);
+
+  // 一些常见的时区映射
+  const timezoneMap: { [key: number]: string } = {
+    8: "Asia/Shanghai", // 中国
+    9: "Asia/Tokyo", // 日本
+    0: "UTC", // 格林威治
+    [-5]: "America/New_York", // 美东
+    [-8]: "America/Los_Angeles", // 美西
+  };
+
+  return timezoneMap[timezoneOffset] || `Etc/GMT${timezoneOffset >= 0 ? "-" : "+"}${Math.abs(timezoneOffset)}`;
 }
 
 /**
@@ -140,19 +175,26 @@ export async function getWeatherByGeolocation(): Promise<WeatherData> {
 
           // 反向地理编码获取城市名称
           const geoResponse = await fetch(
-            `https://geocoding-api.open-meteo.com/v1/search?latitude=${latitude}&longitude=${longitude}&count=1&language=zh`,
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=zh-CN,zh`,
+            {
+              headers: {
+                "User-Agent": "WeatherNFT-App/1.0",
+              },
+            },
           );
-
+          console.log("geoResponse", geoResponse);
           let cityName = "未知位置";
           let country = "";
           let timezone = "UTC";
 
           if (geoResponse.ok) {
             const geoData = await geoResponse.json();
-            if (geoData.results && geoData.results.length > 0) {
-              cityName = geoData.results[0].name;
-              country = geoData.results[0].country;
-              timezone = geoData.results[0].timezone || "UTC";
+            if (geoData && geoData.display_name) {
+              // 提取城市信息
+              const address = geoData.address || {};
+              cityName = address.city || address.town || address.village || address.county || "未知位置";
+              country = address.country || "未知国家";
+              timezone = getTimezoneFromLongitude(longitude);
             }
           }
 

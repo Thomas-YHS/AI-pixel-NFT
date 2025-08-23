@@ -39,7 +39,6 @@ const Create: NextPage = () => {
       // Step 1: 获取天气数据
       setStep("fetching");
       let realWeatherData: WeatherData;
-      debugger;
       if (isUsingLocation) {
         realWeatherData = await getWeatherByGeolocation();
         setCity(realWeatherData.city); // 更新城市名称显示
@@ -157,6 +156,7 @@ const Create: NextPage = () => {
   };
 
   const generateImageViaApi = async (prompt: string): Promise<string> => {
+    debugger;
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: {

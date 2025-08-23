@@ -7,9 +7,10 @@ export async function POST(request: NextRequest) {
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
-
+    debugger;
     // 检查是否有Replicate API密钥
     const replicateToken = process.env.REPLICATE_API_TOKEN;
+    console.log("replicateToken", replicateToken);
     if (!replicateToken) {
       console.warn("REPLICATE_API_TOKEN not found, using fallback generation");
       return generateFallbackImage(prompt, width, height);
