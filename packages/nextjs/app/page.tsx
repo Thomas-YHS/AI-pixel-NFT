@@ -47,20 +47,20 @@ const Home: NextPage = () => {
               <div className="flex flex-col bg-base-100 px-6 py-8 text-center items-center rounded-3xl shadow-lg">
                 <SparklesIcon className="h-12 w-12 text-secondary mb-4" />
                 <h3 className="text-xl font-bold mb-2">🎨 AI 智能生成</h3>
-                <p className="text-base-content/70">使用最新AI技术自动生成风格化海报，每一张都是艺术品</p>
+                <p className="text-base-content/70">使用最新 AI 技术自动生成风格化海报，每一张都是艺术品</p>
               </div>
 
               <div className="flex flex-col bg-base-100 px-6 py-8 text-center items-center rounded-3xl shadow-lg">
                 <PhotoIcon className="h-12 w-12 text-accent mb-4" />
                 <h3 className="text-xl font-bold mb-2">💎 NFT 铸造</h3>
-                <p className="text-base-content/70">ERC-721标准，每天每地限量1枚，保证稀缺性和收藏价值</p>
+                <p className="text-base-content/70">ERC-721 标准，每天每地限量 1 枚，保证稀缺性和收藏价值</p>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex justify-center gap-6 flex-col sm:flex-row">
               <Link href="/create" className="btn btn-primary btn-lg">
-                🎨 创建天气NFT
+                🎨 创建天气 NFT
               </Link>
               {connectedAddress && (
                 <Link href="/me" className="btn btn-secondary btn-lg">
@@ -75,7 +75,7 @@ const Home: NextPage = () => {
             {/* Stats */}
             <div className="stats shadow mt-12 max-w-2xl mx-auto">
               <div className="stat">
-                <div className="stat-title">已铸造NFT</div>
+                <div className="stat-title">已铸造 NFT</div>
                 <div className="stat-value text-primary">42</div>
                 <div className="stat-desc">来自全球各地</div>
               </div>
@@ -100,9 +100,9 @@ const Home: NextPage = () => {
                 <div className="step step-primary">连接钱包</div>
                 <div className="step step-primary">输入位置</div>
                 <div className="step step-primary">获取天气</div>
-                <div className="step step-primary">AI生成图片</div>
-                <div className="step step-primary">上传IPFS</div>
-                <div className="step step-primary">铸造NFT</div>
+                <div className="step step-primary">AI 生成图片</div>
+                <div className="step step-primary">上传 IPFS</div>
+                <div className="step step-primary">铸造 NFT</div>
               </div>
             </div>
           </div>

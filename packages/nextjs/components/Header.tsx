@@ -21,7 +21,7 @@ export const menuLinks: HeaderMenuLink[] = [
     href: "/",
   },
   {
-    label: "创建NFT",
+    label: "创建 NFT",
     href: "/create",
     icon: <SparklesIcon className="h-4 w-4" />,
   },

@@ -100,7 +100,7 @@ const Create: NextPage = () => {
 
       // 如果不可铸造，显示提示
       if (!validationResult.canMint) {
-        console.warn(`🚨 AI资源保护: ${validationResult.reason}`);
+        console.warn(`🚨 AI 资源保护: ${validationResult.reason}`);
       }
     } catch (error) {
       console.error("Validation error:", error);
@@ -126,7 +126,7 @@ const Create: NextPage = () => {
       // Step 0: 🚨 关键：AI生成前的真实合约校验
       setStep("validating");
 
-      console.log("🚨 AI资源保护：开始合约校验...");
+      console.log("🚨 AI 资源保护：开始合约校验...");
 
       // 调用校验API进行真实的合约检查
       const validationResponse = await fetch("/api/validate", {
@@ -145,12 +145,12 @@ const Create: NextPage = () => {
       console.log("🔍 合约校验结果:", validationResult);
 
       if (!validationResult.canMint) {
-        alert(`🚨 AI资源保护：${validationResult.reason}`);
+        alert(`🚨 AI 资源保护：${validationResult.reason}`);
         setStep("idle");
         return;
       }
 
-      console.log("✅ 校验通过，开始AI生成...");
+      console.log("✅ 校验通过，开始 AI 生成...");
 
       // Step 1: 获取天气数据
       setStep("fetching");
@@ -357,7 +357,7 @@ const Create: NextPage = () => {
         <text x="200" y="450" text-anchor="middle" fill="white" font-size="16">湿度: ${data.humidity}%</text>
         <text x="200" y="480" text-anchor="middle" fill="white" font-size="16">风速: ${data.windSpeed} km/h</text>
         
-        <!-- AI生成标识 -->
+        <!-- AI 生成标识 -->
         <text x="200" y="550" text-anchor="middle" fill="rgba(255,255,255,0.7)" font-size="14">AI Generated Weather NFT</text>
       </svg>
     `;
@@ -382,25 +382,25 @@ const Create: NextPage = () => {
       case "fetching":
         return "🌍 获取天气数据...";
       case "generating":
-        return "🎨 AI正在生成图片...";
+        return "🎨 AI 正在生成图片...";
       case "uploading":
-        return "☁️ 上传到Pinata IPFS...";
+        return "☁️ 上传到 Pinata IPFS...";
       case "minting":
-        return "⛏️ 铸造NFT...";
+        return "⛏️ 铸造 NFT...";
       case "done":
         return "✅ 完成!";
       default:
-        return "🌤️ 生成你的天气NFT";
+        return "🌤️ 生成你的天气 NFT";
     }
   };
 
   return (
     <>
-      <MetaHeader title="创建天气NFT | AI Moment NFT" description="基于实时天气生成独特的NFT" />
+      <MetaHeader title="创建天气 NFT | AI Moment NFT" description="基于实时天气生成独特的 NFT" />
       <div className="flex items-center flex-col flex-grow pt-10">
         <div className="px-5 w-full max-w-4xl">
           <h1 className="text-center">
-            <span className="block text-4xl font-bold mb-2">🌤️ 创建天气NFT</span>
+            <span className="block text-4xl font-bold mb-2">🌤️ 创建天气 NFT</span>
             <span className="block text-2xl font-bold">AI Moment NFT</span>
           </h1>
 
@@ -571,7 +571,7 @@ const Create: NextPage = () => {
                 {step === "done" && (
                   <div className="flex flex-col gap-4">
                     <div className="alert alert-success">
-                      <span>🎉 NFT铸造成功！Token ID: {tokenId ? tokenId : "加载中..."}</span>
+                      <span>🎉 NFT 铸造成功！Token ID: {tokenId ? tokenId : "加载中..."}</span>
                     </div>
                     {tokenId && (
                       <div className="text-center text-sm text-base-content/70">
@@ -582,7 +582,7 @@ const Create: NextPage = () => {
                     <button className="btn btn-secondary" onClick={resetFlow}>
                       再次生成
                     </button>
-                    <button className="btn btn-outline">查看我的NFT</button>
+                    <button className="btn btn-outline">查看我的 NFT</button>
                   </div>
                 )}
               </div>
@@ -611,7 +611,7 @@ const Create: NextPage = () => {
                       className="w-full rounded-lg shadow-lg"
                     />
                     <div className="mt-4 text-center">
-                      <div className="badge badge-primary">AI生成的天气海报</div>
+                      <div className="badge badge-primary">AI 生成的天气海报</div>
                     </div>
                   </div>
                 ) : (
@@ -619,7 +619,7 @@ const Create: NextPage = () => {
                     <div className="text-center text-base-content/50">
                       <div className="text-6xl mb-4">🌤️</div>
                       <div>点击生成按钮</div>
-                      <div>创建你的天气NFT</div>
+                      <div>创建你的天气 NFT</div>
                     </div>
                   </div>
                 )}
@@ -628,7 +628,7 @@ const Create: NextPage = () => {
           </div>
 
           <div className="mt-8 text-center text-sm text-base-content/70">
-            <p>💡 每个地址每天每个城市只能铸造一枚NFT</p>
+            <p>💡 每个地址每天每个城市只能铸造 1 枚 NFT</p>
             <p>🎯 基于实时天气数据生成独特的数字纪念品</p>
           </div>
         </div>
