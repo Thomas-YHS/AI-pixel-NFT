@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MetaHeader } from "~~/components/MetaHeader";
@@ -38,6 +39,12 @@ const Create: NextPage = () => {
     hasMinted: null,
     isLoading: false,
   });
+
+  // const { data: weatherNFTContract, } = useScaffoldReadContract({
+  //   contractName: "WeatherNFT",
+  //   functionName: "getMintedCount",
+  //   args: [connectedAddress],
+  // });
 
   // 新增：边框选项
   const [useFrame, setUseFrame] = useState(true);
@@ -582,7 +589,9 @@ const Create: NextPage = () => {
                     <button className="btn btn-secondary" onClick={resetFlow}>
                       再次生成
                     </button>
-                    <button className="btn btn-outline">查看我的 NFT</button>
+                    <Link href="/me">
+                      <button className="btn btn-outline">查看我的 NFT</button>
+                    </Link>
                   </div>
                 )}
               </div>
