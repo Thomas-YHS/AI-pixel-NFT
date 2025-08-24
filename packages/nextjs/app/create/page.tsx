@@ -1,46 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MetaHeader } from "~~/components/MetaHeader";
 import { Address } from "~~/components/scaffold-eth";
-import {
-  useDeployedContractInfo,
-  useScaffoldWatchContractEvent,
-  useScaffoldWriteContract,
-  useScaffoldReadContract,
-} from "~~/hooks/scaffold-eth";
+import { useDeployedContractInfo, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { PinataUploadResult, createWeatherNFTMetadata, uploadCompleteNFTToPinata } from "~~/lib/pinata";
 import { type WeatherData, generateWeatherPrompt, getWeatherByCity, getWeatherByGeolocation } from "~~/lib/weather";
-import { validationService } from "~~/lib/validationService";
 
 const Create: NextPage = () => {
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync: writeWeatherNFTAsync } = useScaffoldWriteContract({ contractName: "WeatherNFT" });
   const { data: weatherNFTContract } = useDeployedContractInfo("WeatherNFT");
-  const [step, setStep] = useState<"idle" | "validating" | "fetching" | "generating" | "uploading" | "minting" | "done">("idle");
+  const [step, setStep] = useState<
+    "idle" | "validating" | "fetching" | "generating" | "uploading" | "minting" | "done"
+  >("idle");
   const [city, setCity] = useState("");
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [tokenId, setTokenId] = useState<number | null>(null);
   const [isUsingLocation, setIsUsingLocation] = useState(false);
-  
+
   // 新增：校验状态
   const [validationResult, setValidationResult] = useState<{
     canMint: boolean;
     reason?: string;
   } | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  
+
   // ✅ 正确：使用useState管理校验状态，避免复杂的Hook类型问题
   const [mintStatus, setMintStatus] = useState<{
     hasMinted: boolean | null;
     isLoading: boolean;
   }>({
     hasMinted: null,
-    isLoading: false
+    isLoading: false,
   });
 
   // 新增：边框选项
@@ -51,8 +47,8 @@ const Create: NextPage = () => {
   const getCurrentDate = (): string => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
 
@@ -66,16 +62,16 @@ const Create: NextPage = () => {
   // 新增：校验城市铸造资格
   const validateCityEligibility = async () => {
     if (!connectedAddress || !city || !weatherNFTContract?.address) return;
-    
+
     setIsValidating(true);
     setMintStatus(prev => ({ ...prev, isLoading: true }));
-    
+
     try {
       console.log("🔍 开始校验铸造资格...");
       console.log("地址:", connectedAddress);
       console.log("城市:", city);
       console.log("日期:", getCurrentDate());
-      
+
       // 🚨 关键：真实的合约校验，避免AI资源浪费
       // 使用fetch直接调用我们的校验API
       const response = await fetch("/api/validate", {
@@ -86,27 +82,26 @@ const Create: NextPage = () => {
         body: JSON.stringify({
           address: connectedAddress,
           city: city,
-          date: getCurrentDate()
+          date: getCurrentDate(),
         }),
       });
-      
+
       const result = await response.json();
       console.log("合约校验结果:", result);
-      
+
       const validationResult = {
         canMint: result.canMint,
-        reason: result.canMint ? undefined : result.reason
+        reason: result.canMint ? undefined : result.reason,
       };
-      
+
       console.log("最终校验结果:", validationResult);
       setValidationResult(validationResult);
       setMintStatus({ hasMinted: !result.canMint, isLoading: false });
-      
+
       // 如果不可铸造，显示提示
       if (!validationResult.canMint) {
         console.warn(`🚨 AI资源保护: ${validationResult.reason}`);
       }
-      
     } catch (error) {
       console.error("Validation error:", error);
       setValidationResult({ canMint: false, reason: "校验失败" });
@@ -130,9 +125,9 @@ const Create: NextPage = () => {
     try {
       // Step 0: 🚨 关键：AI生成前的真实合约校验
       setStep("validating");
-      
+
       console.log("🚨 AI资源保护：开始合约校验...");
-      
+
       // 调用校验API进行真实的合约检查
       const validationResponse = await fetch("/api/validate", {
         method: "POST",
@@ -142,19 +137,19 @@ const Create: NextPage = () => {
         body: JSON.stringify({
           address: connectedAddress,
           city: city.trim(),
-          date: getCurrentDate()
+          date: getCurrentDate(),
         }),
       });
-      
+
       const validationResult = await validationResponse.json();
       console.log("🔍 合约校验结果:", validationResult);
-      
+
       if (!validationResult.canMint) {
         alert(`🚨 AI资源保护：${validationResult.reason}`);
         setStep("idle");
         return;
       }
-      
+
       console.log("✅ 校验通过，开始AI生成...");
 
       // Step 1: 获取天气数据
@@ -179,7 +174,7 @@ const Create: NextPage = () => {
         const prompt = generateWeatherPrompt(realWeatherData);
         imageUrl = await generateImageViaApi(prompt, connectedAddress, {
           useFrame,
-          frameStyle
+          frameStyle,
         });
       } catch (error) {
         console.warn("AI generation failed, using fallback:", error);
@@ -220,13 +215,13 @@ const Create: NextPage = () => {
 
       try {
         // 使用真实的合约交互
-        const metadataUri =
-          uploadResult?.metadataCid ||
-          (() => {
-            const metadata = createWeatherNFTMetadata(realWeatherData);
-            const jsonString = JSON.stringify(metadata, null, 2);
-            return `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
-          })();
+        // const metadataUri =
+        //   uploadResult?.metadataCid ||
+        //   (() => {
+        //     const metadata = createWeatherNFTMetadata(realWeatherData);
+        //     const jsonString = JSON.stringify(metadata, null, 2);
+        //     return `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
+        //   })();
 
         const mintTx = await writeWeatherNFTAsync({
           functionName: "mintWithURI",
@@ -237,7 +232,7 @@ const Create: NextPage = () => {
             realWeatherData.weather,
             BigInt(realWeatherData.temperature),
             realWeatherData.timeOfDay,
-            metadataUri,
+            `https://ipfs.io/ipfs/${uploadResult?.metadataCid}`,
           ],
         });
 
@@ -245,7 +240,7 @@ const Create: NextPage = () => {
 
         // 简单的方法：等待事件监听器自动设置Token ID
         // 事件监听器已经在useEffect中设置，会自动捕获WeatherNFTMinted事件
-        
+
         // 如果事件监听器没有及时触发，使用fallback
         setTimeout(() => {
           if (!tokenId) {
@@ -256,7 +251,7 @@ const Create: NextPage = () => {
         }, 3000); // 等待3秒
 
         setStep("done");
-        
+
         // 铸造成功后清除校验结果，强制重新校验
         setValidationResult(null);
       } catch (error) {
@@ -290,24 +285,11 @@ const Create: NextPage = () => {
     }
   };
 
-  useScaffoldWatchContractEvent({
-    contractName: "WeatherNFT",
-    eventName: "WeatherNFTMinted",
-    chainId: 31337,
-    onLogs: logs => {
-      console.log("WeatherNFTMinted event received:", logs);
-      if (logs.length > 0) {
-        const event = logs[0];
-        const tokenId = event.args?.tokenId;
-        if (tokenId) {
-          console.log("Setting Token ID from event:", Number(tokenId));
-          setTokenId(Number(tokenId));
-        }
-      }
-    },
-  });
-
-  const generateImageViaApi = async (prompt: string, address: string, options: { useFrame: boolean; frameStyle: "auto" | "minimal" | "pixel" }): Promise<string> => {
+  const generateImageViaApi = async (
+    prompt: string,
+    address: string,
+    options: { useFrame: boolean; frameStyle: "auto" | "minimal" | "pixel" },
+  ): Promise<string> => {
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: {
@@ -318,7 +300,7 @@ const Create: NextPage = () => {
         prompt,
         address, // <--- 新增 address
         useFrame: options.useFrame,
-        frameStyle: options.frameStyle
+        frameStyle: options.frameStyle,
       }),
     });
 
@@ -486,27 +468,21 @@ const Create: NextPage = () => {
                       <span>正在校验...</span>
                     </div>
                   ) : validationResult ? (
-                    <div className={`alert ${validationResult.canMint ? 'alert-success' : 'alert-error'}`}>
+                    <div className={`alert ${validationResult.canMint ? "alert-success" : "alert-error"}`}>
                       {validationResult.canMint ? (
                         <>
                           <span>✅ 可以铸造</span>
-                          <div className="text-xs mt-1">
-                            今日可铸造城市: {city}
-                          </div>
+                          <div className="text-xs mt-1">今日可铸造城市: {city}</div>
                         </>
                       ) : (
                         <>
                           <span>❌ 无法铸造</span>
-                          <div className="text-xs mt-1">
-                            原因: {validationResult.reason}
-                          </div>
+                          <div className="text-xs mt-1">原因: {validationResult.reason}</div>
                         </>
                       )}
                     </div>
                   ) : (
-                    <div className="text-sm text-base-content/70">
-                      输入城市名称后自动校验铸造资格
-                    </div>
+                    <div className="text-sm text-base-content/70">输入城市名称后自动校验铸造资格</div>
                   )}
                 </div>
               )}
@@ -523,11 +499,11 @@ const Create: NextPage = () => {
                         type="checkbox"
                         className="toggle toggle-primary"
                         checked={useFrame}
-                        onChange={(e) => setUseFrame(e.target.checked)}
+                        onChange={e => setUseFrame(e.target.checked)}
                       />
                     </label>
                   </div>
-                  
+
                   {/* 边框样式选择 */}
                   {useFrame && (
                     <div className="form-control">
@@ -537,7 +513,7 @@ const Create: NextPage = () => {
                       <select
                         className="select select-bordered w-full"
                         value={frameStyle}
-                        onChange={(e) => setFrameStyle(e.target.value as "auto" | "minimal" | "pixel")}
+                        onChange={e => setFrameStyle(e.target.value as "auto" | "minimal" | "pixel")}
                       >
                         <option value="auto">🎯 自动选择（根据钱包类型）</option>
                         <option value="minimal">✨ 简约风格</option>
@@ -559,8 +535,8 @@ const Create: NextPage = () => {
                     className="btn btn-primary btn-lg"
                     onClick={handleGenerate}
                     disabled={
-                      !connectedAddress || 
-                      !city.trim() || 
+                      !connectedAddress ||
+                      !city.trim() ||
                       isValidating ||
                       (validationResult ? !validationResult.canMint : false)
                     }
@@ -582,11 +558,11 @@ const Create: NextPage = () => {
                             ? 20
                             : step === "generating"
                               ? 40
-                            : step === "uploading"
-                              ? 70
-                            : step === "minting"
-                              ? 90
-                              : 100
+                              : step === "uploading"
+                                ? 70
+                                : step === "minting"
+                                  ? 90
+                                  : 100
                       }
                     ></progress>
                   </div>
@@ -595,9 +571,7 @@ const Create: NextPage = () => {
                 {step === "done" && (
                   <div className="flex flex-col gap-4">
                     <div className="alert alert-success">
-                      <span>
-                        🎉 NFT铸造成功！Token ID: {tokenId ? tokenId : "加载中..."}
-                      </span>
+                      <span>🎉 NFT铸造成功！Token ID: {tokenId ? tokenId : "加载中..."}</span>
                     </div>
                     {tokenId && (
                       <div className="text-center text-sm text-base-content/70">

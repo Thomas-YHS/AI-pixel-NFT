@@ -19,10 +19,8 @@ export const NFTCard: React.FC<NFTCardProps> = ({ tokenId }) => {
     functionName: "tokenURI",
     args: [tokenId],
   });
-  const ipfsRpc = "https://ipfs.io/ipfs/";
-
   const fetchNFTData = async (cid: string) => {
-    const response = await fetch(`${ipfsRpc}${cid}`);
+    const response = await fetch(`${cid}`);
     const data = await response.json();
     console.log("data", data);
     setNft(data);
