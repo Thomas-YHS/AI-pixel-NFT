@@ -1,8 +1,7 @@
 # 🌤️ AI Moment NFT
 
-\<h4 align="center"\>
-\<a href="[https://ai-pixel-nft-nextjs.vercel.app](https://ai-pixel-nft-nextjs.vercel.app)"\>项目 Demo 网页\</a\>
-\</h4\>
+[![项目 Demo](https://img.shields.io/badge/打开-Demo-brightgreen?style=for-the-badge)](https://ai-pixel-nft-nextjs.vercel.app)
+
 
 🧪 **AI Moment NFT** 是一个创新的去中心化应用，结合实时天气数据、地理位置信息和AI图像生成技术，为用户创建独特的"此地此刻"数字纪念NFT。
 
