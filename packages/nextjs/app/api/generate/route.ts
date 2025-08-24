@@ -13,7 +13,7 @@ const FINAL_HEIGHT = IMAGE_HEIGHT + BORDER_SIZE * 2;
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, address } = await request.json();
+    const { prompt, address, useFrame = true, frameStyle = "auto" } = await request.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
@@ -26,9 +26,12 @@ export async function POST(request: NextRequest) {
     // 1. 分析钱包
     const walletTraits = await analyzeWallet(address);
 
-    // 2. 生成相框 SVG
-    const frameSvg = generateFrameSVG(walletTraits);
-    const frameBuffer = Buffer.from(frameSvg);
+    // 2. 生成相框 SVG（如果启用）
+    let frameBuffer: Buffer | null = null;
+    if (useFrame) {
+      const frameSvg = generateFrameSVG(walletTraits, frameStyle);
+      frameBuffer = Buffer.from(frameSvg);
+    }
 
     // 3. 调用 Poe API 获取 AI 生成的主图像
     // 检查是否有Poe API密钥
@@ -38,7 +41,14 @@ export async function POST(request: NextRequest) {
       console.warn("POE_API_KEY not found, using fallback generation");
       // 如果没有API key，直接使用后备图像+相框
       const fallbackBuffer = await generateFallbackImage(prompt, IMAGE_WIDTH, IMAGE_HEIGHT);
-      return combineImages(fallbackBuffer, frameBuffer);
+      if (frameBuffer) {
+        return combineImages(fallbackBuffer, frameBuffer);
+      } else {
+        // 无边框时直接返回主图
+        return new NextResponse(fallbackBuffer, {
+          headers: { "Content-Type": "image/png" },
+        });
+      }
     }
 
     // 使用Poe API生成图像
@@ -83,21 +93,35 @@ export async function POST(request: NextRequest) {
 
     const aiImageBuffer = await imageResponse.arrayBuffer();
 
-    // 4. 将 AI 图像和相框合并
-    return combineImages(Buffer.from(aiImageBuffer), frameBuffer);
+    // 4. 将 AI 图像和相框合并（如果启用）
+    if (frameBuffer) {
+      return combineImages(Buffer.from(aiImageBuffer), frameBuffer);
+    } else {
+      // 无边框时直接返回主图
+      return new NextResponse(Buffer.from(aiImageBuffer), {
+        headers: { "Content-Type": "image/png" },
+      });
+    }
   } catch (error) {
     console.error("Image generation/framing error:", error instanceof Error ? error.message : String(error));
-    const { prompt } = await request.json().catch(() => ({ prompt: "Weather poster" }));
+    const { prompt, useFrame = true, frameStyle = "auto" } = await request.json().catch(() => ({ prompt: "Weather poster", useFrame: true, frameStyle: "auto" }));
     const fallbackBuffer = await generateFallbackImage(prompt, IMAGE_WIDTH, IMAGE_HEIGHT);
-    const defaultWalletTraits = {
-      tags: ["链上新手小白"],
-      transactionCount: 0,
-      walletAgeInDays: 0,
-      nftCount: 0,
-      uniqueContractsInteracted: 0,
-    }; // Adjust structure to match WalletTraits type
-    const frameBuffer = Buffer.from(generateFrameSVG(defaultWalletTraits)); // 失败时用默认相框
-    return combineImages(fallbackBuffer, frameBuffer);
+    
+    if (useFrame) {
+      const defaultWalletTraits = {
+        tags: ["链上新手小白"],
+        transactionCount: 0,
+        walletAgeInDays: 0,
+        nftCount: 0,
+        uniqueContractsInteracted: 0,
+      };
+      const frameBuffer = Buffer.from(generateFrameSVG(defaultWalletTraits, frameStyle));
+      return combineImages(fallbackBuffer, frameBuffer);
+    } else {
+      return new NextResponse(fallbackBuffer, {
+        headers: { "Content-Type": "image/png" },
+      });
+    }
   }
 }
 

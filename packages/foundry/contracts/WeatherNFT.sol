@@ -129,7 +129,7 @@ contract WeatherNFT is ERC721, ERC721URIStorage, Ownable {
         bytes32 mintKey = keccak256(abi.encodePacked(user, city, date));
         return mintedCombinations[mintKey];
     }
-    
+
     /**
      * 获取指定tokenId的天气数据
      */

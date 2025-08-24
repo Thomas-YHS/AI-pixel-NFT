@@ -4,6 +4,17 @@
 
 在 `packages/nextjs/` 目录下创建或更新 `.env.local` 文件，添加以下配置。下面列出了项目当前使用的变量及说明。
 
+## 网络配置（新增）
+
+- NEXT_PUBLIC_NETWORK (可选，默认: sepolia)
+  - 用途：指定应用使用的网络环境
+  - 可选值：`local`（本地开发）、`sepolia`（测试网）、`mainnet`（主网）
+  - 影响：前端和API路由都会使用对应网络的配置
+
+- NEXT_PUBLIC_RPC_URL (可选)
+  - 用途：自定义RPC节点URL，优先级高于默认配置
+  - 示例：`https://sepolia.infura.io/v3/YOUR_PROJECT_ID`
+
 - NEXT_PUBLIC_PINATA_JWT (可选/注意安全)
   - 用途：Pinata 的 JWT，用于服务器端 API 路由或直接通过前端访问 Pinata 网关时的认证。
   - 注意：任何以 `NEXT_PUBLIC_` 开头的变量都会被 Next.js 暴露到浏览器端。把敏感密钥放到 `NEXT_PUBLIC_` 前缀下会被公开，通常不推荐。推荐在服务器端 API 路由中使用未加 `NEXT_PUBLIC_` 的环境变量来保护密钥。
@@ -28,6 +39,10 @@
 请在 `packages/nextjs/.env.local` 中填入类似下面的内容（将占位符替换为你的真实值）：
 
 ```env
+# 网络配置（新增）
+NEXT_PUBLIC_NETWORK=sepolia  # 可选值: local, sepolia, mainnet
+NEXT_PUBLIC_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID
+
 # Pinata JWT（一般建议在服务器端 API 使用非 NEXT_PUBLIC 版本）
 NEXT_PUBLIC_PINATA_JWT="your_pinata_jwt_here"
 
@@ -40,6 +55,9 @@ POE_API_KEY=your_poe_api_key_here
 # Alchemy（用于链交互）
 ALCHEMY_API_KEY=your_alchemy_key_here
 ALCHEMY_NETWORK=ETH_SEPOLIA
+
+# 钱包连接配置
+NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_wallet_connect_project_id
 ```
 
 ## 安全建议

@@ -2,23 +2,18 @@
 pragma solidity ^0.8.19;
 
 import "./DeployHelpers.s.sol";
-import { DeployYourContract } from "./DeployYourContract.s.sol";
 import { DeployWeatherNFT } from "./DeployWeatherNFT.s.sol";
 
 /**
- * @notice Main deployment script for all contracts
- * @dev Run this when you want to deploy multiple contracts at once
+ * @notice Main deployment script for WeatherNFT contract
+ * @dev Run this when you want to deploy WeatherNFT contract
  *
  * Example: yarn deploy # runs this script(without`--file` flag)
  */
 contract DeployScript is ScaffoldETHDeploy {
     function run() external {
-        // Deploys all your contracts sequentially
+        // Deploys WeatherNFT contract
         // Add new deployments here when needed
-
-        // Deploy original contract for reference
-        DeployYourContract deployYourContract = new DeployYourContract();
-        deployYourContract.run();
 
         // Deploy WeatherNFT contract
         DeployWeatherNFT deployWeatherNFT = new DeployWeatherNFT();
