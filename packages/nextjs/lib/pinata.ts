@@ -23,6 +23,22 @@ export interface PinataUploadResult {
   metadataCid: string;
 }
 
+function base64ToBlob(dataUrl: string) {
+  // 拆分出头部 (mimeType) 和 base64 数据
+  const [header, base64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)?.[1] || "image/png";
+
+  // 解码 base64
+  const byteString = atob(base64);
+  const byteNumbers = new Array(byteString.length);
+  for (let i = 0; i < byteString.length; i++) {
+    byteNumbers[i] = byteString.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+
+  return new Blob([byteArray], { type: mime });
+}
+
 /**
  * 将图片上传到Pinata IPFS
  */
@@ -34,25 +50,16 @@ export async function uploadImageToPinata(imageDataUrl: string, filename: string
     if (imageDataUrl.startsWith("data:")) {
       try {
         // 使用辅助函数检测图片类型
-        const { extension } = detectImageType(imageDataUrl);
-
-        // 直接处理 data URL
-        const [, base64Data] = imageDataUrl.split(",");
-
-        // 清理和验证 base64 数据
-
-        const cleanBase64Data = decodeURIComponent(base64Data);
-
-        // 将 base64 转换为 Blob
-        // const byteCharacters = atob(cleanBase64Data);
-        // const byteNumbers = new Array(byteCharacters.length);
-        // for (let i = 0; i < byteCharacters.length; i++) {
-        //   byteNumbers[i] = byteCharacters.charCodeAt(i);
-        // }
-        // const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([cleanBase64Data], { type: "image/svg+xml" });
-
-        file = new File([blob], `${filename}.${extension}`, { type: "image/svg+xml" });
+        const { mimeType, extension } = detectImageType(imageDataUrl);
+        let blob: Blob;
+        if (extension === "svg") {
+          const [, base64Data] = imageDataUrl.split(",");
+          const cleanBase64Data = decodeURIComponent(base64Data);
+          blob = new Blob([cleanBase64Data], { type: mimeType });
+        } else {
+          blob = base64ToBlob(imageDataUrl);
+        }
+        file = new File([blob], `${filename}.${extension}`, { type: mimeType });
       } catch (base64Error) {
         console.warn("Base64 processing failed, falling back to fetch method:", base64Error);
         // 如果base64处理失败，回退到fetch方式

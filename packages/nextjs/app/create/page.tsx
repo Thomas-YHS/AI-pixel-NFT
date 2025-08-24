@@ -24,13 +24,6 @@ const Create: NextPage = () => {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [tokenId, setTokenId] = useState<number | null>(null);
   const [isUsingLocation, setIsUsingLocation] = useState(false);
-  // const [ipfsData, setIpfsData] = useState<{
-  //   imageUrl: string;
-  //   metadataUrl: string;
-  //   imageCid: string;
-  //   metadataCid: string;
-  // } | null>(null);
-  // console.log(weatherNFTContract, "weatherNFTContract");
   const handleGenerate = async () => {
     if (!connectedAddress) {
       alert("请先连接钱包");
@@ -64,14 +57,13 @@ const Create: NextPage = () => {
         // 使用AI生成图像
         const prompt = generateWeatherPrompt(realWeatherData);
         imageUrl = await generateImageViaApi(prompt, connectedAddress);
-
-        // setGeneratedImage(generatedImageUrl);
       } catch (error) {
         console.warn("AI generation failed, using fallback:", error);
         // 失败时使用fallback SVG
         imageUrl = generatePlaceholderSVG(realWeatherData);
-        // setGeneratedImage(fallbackImage);
       }
+
+      setGeneratedImage(imageUrl);
 
       // Step 3: 上传到IPFS
       setStep("uploading");
