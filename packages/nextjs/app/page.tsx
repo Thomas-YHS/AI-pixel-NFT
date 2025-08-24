@@ -67,9 +67,9 @@ const Home: NextPage = () => {
                   🖼️ 我的收藏
                 </Link>
               )}
-              <Link href="/debug" className="btn btn-outline btn-lg">
+              {/* <Link href="/debug" className="btn btn-outline btn-lg">
                 🔧 调试合约
-              </Link>
+              </Link> */}
             </div>
 
             {/* Stats */}
