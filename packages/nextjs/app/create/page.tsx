@@ -2,19 +2,24 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { NextPage } from "next";
 import { useAccount } from "wagmi";
 import { MetaHeader } from "~~/components/MetaHeader";
 import { Address } from "~~/components/scaffold-eth";
-import { useDeployedContractInfo, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
+import { useDeployedContractInfo, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 import { PinataUploadResult, createWeatherNFTMetadata, uploadCompleteNFTToPinata } from "~~/lib/pinata";
 import { type WeatherData, generateWeatherPrompt, getWeatherByCity, getWeatherByGeolocation } from "~~/lib/weather";
 
 const Create: NextPage = () => {
   const { address: connectedAddress } = useAccount();
+  const router = useRouter();
   const { writeContractAsync: writeWeatherNFTAsync } = useScaffoldWriteContract({ contractName: "WeatherNFT" });
   const { data: weatherNFTContract } = useDeployedContractInfo("WeatherNFT");
+  const { data: totalSupply } = useScaffoldReadContract({
+    contractName: "WeatherNFT",
+    functionName: "totalSupply",
+  });
   const [step, setStep] = useState<
     "idle" | "validating" | "fetching" | "generating" | "uploading" | "minting" | "done"
   >("idle");
@@ -57,6 +62,11 @@ const Create: NextPage = () => {
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+  };
+
+  // 跳转到我的收藏页面
+  const handleViewMyNFTs = () => {
+    router.push("/me");
   };
 
   // 新增：自动校验城市
@@ -175,21 +185,34 @@ const Create: NextPage = () => {
       // Step 2: 生成图像
       setStep("generating");
 
-      let imageUrl = "";
+      let imageUrl: string | null = null;
       try {
         // 使用AI生成图像
         const prompt = generateWeatherPrompt(realWeatherData);
-        imageUrl = await generateImageViaApi(prompt, connectedAddress, {
+        const generatedImage = await generateImageViaApi(prompt, connectedAddress, {
           useFrame,
           frameStyle,
         });
+
+        // 确保返回的图片URL不为空
+        if (generatedImage && generatedImage.trim() !== "") {
+          imageUrl = generatedImage;
+        } else {
+          throw new Error("AI生成的图片URL为空");
+        }
       } catch (error) {
         console.warn("AI generation failed, using fallback:", error);
         // 失败时使用fallback SVG
         imageUrl = generatePlaceholderSVG(realWeatherData);
       }
 
-      setGeneratedImage(imageUrl);
+      // 确保imageUrl不为空字符串
+      if (imageUrl && imageUrl.trim() !== "") {
+        setGeneratedImage(imageUrl);
+      } else {
+        console.error("Failed to generate valid image URL");
+        setGeneratedImage(null);
+      }
 
       // Step 3: 上传到IPFS
       setStep("uploading");
@@ -201,12 +224,11 @@ const Create: NextPage = () => {
         // 生成临时 tokenID（实际应该在铸造后获取）
         const tempTokenId = `${Date.now()}`;
         // 上传图片和metadata到Pinata IPFS（包含合约地址和tokenID用于集合管理）
-        uploadResult = await uploadCompleteNFTToPinata(
-          imageUrl || "",
-          metadata,
-          weatherNFTContract?.address,
-          tempTokenId,
-        );
+        if (imageUrl && imageUrl.trim() !== "") {
+          uploadResult = await uploadCompleteNFTToPinata(imageUrl, metadata, weatherNFTContract?.address, tempTokenId);
+        } else {
+          console.warn("Skipping IPFS upload due to invalid image URL");
+        }
 
         console.log("Pinata Upload successful:", uploadResult);
         console.log("Contract address:", weatherNFTContract?.address);
@@ -230,6 +252,13 @@ const Create: NextPage = () => {
         //     return `data:application/json;charset=utf-8,${encodeURIComponent(jsonString)}`;
         //   })();
 
+        // 使用合约的view函数来获取下一个tokenId（铸造前）
+        let nextTokenId: number | null = null;
+        if (totalSupply !== undefined) {
+          nextTokenId = Number(totalSupply) + 1; // 下一个tokenId
+          console.log("Next tokenId will be:", nextTokenId);
+        }
+
         const mintTx = await writeWeatherNFTAsync({
           functionName: "mintWithURI",
           args: [
@@ -245,17 +274,15 @@ const Create: NextPage = () => {
 
         console.log("NFT Minted successfully! Transaction:", mintTx);
 
-        // 简单的方法：等待事件监听器自动设置Token ID
-        // 事件监听器已经在useEffect中设置，会自动捕获WeatherNFTMinted事件
-
-        // 如果事件监听器没有及时触发，使用fallback
-        setTimeout(() => {
-          if (!tokenId) {
-            // 使用时间戳作为临时Token ID
-            setTokenId(Date.now());
-            console.log("Using fallback Token ID:", Date.now());
-          }
-        }, 3000); // 等待3秒
+        // 设置tokenId
+        if (nextTokenId) {
+          setTokenId(nextTokenId);
+          console.log("Token ID set to:", nextTokenId);
+        } else if (totalSupply !== undefined) {
+          // 如果无法获取下一个tokenId，使用totalSupply作为fallback
+          setTokenId(Number(totalSupply));
+          console.log("Token ID from totalSupply:", totalSupply);
+        }
 
         setStep("done");
 
@@ -319,13 +346,23 @@ const Create: NextPage = () => {
     const contentType = response.headers.get("content-type");
     if (contentType?.includes("image/svg+xml")) {
       const svgText = await response.text();
-      return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+      // 验证生成的URL不为空
+      if (!svgUrl || svgUrl.trim() === "") {
+        throw new Error("Generated SVG URL is empty");
+      }
+      return svgUrl;
     }
 
     // 如果返回的是图片，转换为data URL
     const imageBuffer = await response.arrayBuffer();
     const base64 = Buffer.from(imageBuffer).toString("base64");
-    return `data:image/png;base64,${base64}`;
+    const imageUrl = `data:image/png;base64,${base64}`;
+    // 验证生成的URL不为空
+    if (!imageUrl || imageUrl.trim() === "") {
+      throw new Error("Generated image URL is empty");
+    }
+    return imageUrl;
   };
 
   const generatePlaceholderSVG = (data: any) => {
@@ -406,10 +443,17 @@ const Create: NextPage = () => {
       <MetaHeader title="创建天气 NFT | AI Moment NFT" description="基于实时天气生成独特的 NFT" />
       <div className="flex items-center flex-col flex-grow pt-10">
         <div className="px-5 w-full max-w-4xl">
-          <h1 className="text-center">
-            <span className="block text-4xl font-bold mb-2">🌤️ 创建天气 NFT</span>
-            <span className="block text-2xl font-bold">AI Moment NFT</span>
-          </h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-center flex-1">
+              <span className="block text-4xl font-bold mb-2">🌤️ 创建天气NFT</span>
+              <span className="block text-2xl font-bold">AI Moment NFT</span>
+            </h1>
+            {connectedAddress && (
+              <button className="btn btn-outline btn-primary" onClick={handleViewMyNFTs} title="查看我的NFT收藏">
+                🖼️ 我的收藏
+              </button>
+            )}
+          </div>
 
           <div className="flex flex-col lg:flex-row gap-8 mt-8">
             {/* 左侧：输入和控制 */}
@@ -589,9 +633,9 @@ const Create: NextPage = () => {
                     <button className="btn btn-secondary" onClick={resetFlow}>
                       再次生成
                     </button>
-                    <Link href="/me">
-                      <button className="btn btn-outline">查看我的 NFT</button>
-                    </Link>
+                    <button className="btn btn-outline" onClick={handleViewMyNFTs}>
+                      查看我的NFT
+                    </button>
                   </div>
                 )}
               </div>
@@ -610,7 +654,7 @@ const Create: NextPage = () => {
               <h2 className="text-2xl font-bold mb-6">🎨 生成预览</h2>
 
               <div className="flex justify-center">
-                {generatedImage ? (
+                {generatedImage && generatedImage.trim() !== "" ? (
                   <div className="w-full">
                     <Image
                       src={generatedImage}
