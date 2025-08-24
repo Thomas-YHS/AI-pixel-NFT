@@ -5,8 +5,8 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Scaffold-ETH 2 App",
-  description: "Built with 🏗 Scaffold-ETH 2",
+  title: "AI Moment NFT",
+  description: "基于实时天气与地理信息生成独特海报，并铸造成 NFT，记录下独一无二的『此地此刻』数字纪念",
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
