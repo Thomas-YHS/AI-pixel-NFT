@@ -21,8 +21,8 @@ export class ValidationService {
   private getCurrentDate(): string {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
 
@@ -31,17 +31,16 @@ export class ValidationService {
    * 注意：这个函数需要在实际使用时通过SE-2 hooks调用合约
    */
   async checkCityEligibility(
-    address: string, 
-    city: string, 
+    address: string,
+    city: string,
     contractAddress: string,
-    contractABI: any
   ): Promise<{ canMint: boolean; reason?: string }> {
     if (!address || !city || !contractAddress) {
       return { canMint: false, reason: "Missing required parameters" };
     }
 
     const cacheKey = `${address}-${city}-${this.getCurrentDate()}`;
-    
+
     // 检查缓存
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -50,13 +49,13 @@ export class ValidationService {
 
     // 临时返回默认值，实际使用时需要通过SE-2 hooks调用
     const canMint = true; // 临时默认值
-    
+
     // 更新缓存
     this.cache.set(cacheKey, { result: canMint, timestamp: Date.now() });
 
-    return { 
-      canMint, 
-      reason: canMint ? undefined : "今日已铸造过该城市的NFT" 
+    return {
+      canMint,
+      reason: canMint ? undefined : "今日已铸造过该城市的NFT",
     };
   }
 
@@ -85,10 +84,10 @@ export class ValidationService {
   getCacheStats(): { size: number; hitRate: number } {
     return {
       size: this.cache.size,
-      hitRate: 0.8 // 临时值，实际应该计算命中率
+      hitRate: 0.8, // 临时值，实际应该计算命中率
     };
   }
 }
 
 // 导出单例实例
-export const validationService = ValidationService.getInstance(); 
+export const validationService = ValidationService.getInstance();
