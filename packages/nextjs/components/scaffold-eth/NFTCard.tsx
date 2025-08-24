@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useScaffoldReadContract } from "~~/hooks/scaffold-eth";
+import { useDeployedContractInfo, useScaffoldReadContract } from "~~/hooks/scaffold-eth";
 import { NFTAttribute, NFTItem } from "~~/types/nft";
 
 interface NFTCardProps {
@@ -13,6 +13,9 @@ interface NFTCardProps {
 
 export const NFTCard: React.FC<NFTCardProps> = ({ tokenId }) => {
   const [nft, setNft] = useState<NFTItem | null>(null);
+
+  const { data: weatherNFTContract } = useDeployedContractInfo("WeatherNFT");
+
   // 获取 tokenURI
   const { data: tokenURI } = useScaffoldReadContract({
     contractName: "WeatherNFT",
@@ -35,6 +38,12 @@ export const NFTCard: React.FC<NFTCardProps> = ({ tokenId }) => {
       console.error(error);
     }
   }, [tokenURI]);
+
+  const handleOpenNFT = () => {
+    // 打开 NFT 在以太坊测试网（如Sepolia）上的 OpenSea 详情页
+
+    window.open(`https://sepolia.etherscan.io/nft/${weatherNFTContract?.address}/${tokenId}`, "_blank");
+  };
 
   // 获取所有者（可选，因为已知是当前用户）
   // const { data: owner } = useScaffoldReadContract({
@@ -67,8 +76,9 @@ export const NFTCard: React.FC<NFTCardProps> = ({ tokenId }) => {
             ))}
           </div>
           <div className="card-actions justify-end mt-4">
-            <button className="btn btn-outline btn-sm">在OpenSea查看</button>
-            <button className="btn btn-primary btn-sm">详情</button>
+            <button className="btn btn-primary btn-sm" onClick={handleOpenNFT}>
+              详情
+            </button>
           </div>
         </div>
       </div>
