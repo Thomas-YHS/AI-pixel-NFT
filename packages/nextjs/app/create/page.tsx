@@ -404,7 +404,7 @@ const Create: NextPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full max-w-sm h-[56rem] bg-base-200 rounded-lg flex items-center justify-center">
+                  <div className="w-full max-w-sm h-[400px] bg-base-200 rounded-lg flex items-center justify-center">
                     <div className="text-center text-base-content/50">
                       <div className="text-6xl mb-4">🌤️</div>
                       <div>点击生成按钮</div>
